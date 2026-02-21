@@ -126,10 +126,37 @@
           font-size: 2rem;
         }
       }
+
+      nav {
+        position: fixed;
+        top: 16px;
+        left: 16px;
+        background: var(--panel);
+        padding: 12px 16px;
+        border-radius: 12px;
+        box-shadow: 0 4px 12px rgba(33, 22, 11, 0.15);
+        border: 1px solid rgba(180, 83, 9, 0.2);
+        z-index: 100;
+      }
+
+      nav a {
+        color: var(--accent);
+        text-decoration: none;
+        margin: 0 8px;
+        font-weight: 600;
+      }
+
+      nav a:hover {
+        text-decoration: underline;
+      }
     </style>
   </head>
   <body>
-    <div class="card">
+    <nav>
+      <a href="/">Home</a>
+      <a href="/list">All Prompts</a>
+    </nav>
+    <div class="card"
       <h1>Ollama Prompt Queue</h1>
       <p>Send a prompt, track its progress, and read the final response.</p>
       <form id="prompt-form">

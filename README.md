@@ -29,7 +29,9 @@ Key features:
 
 - **src/storage.py**: Database management module that provides connection handling, schema initialization, and utility functions for SQLite operations. Manages the prompts table with support for queued, processing, and completed states.
 
-- **static/index.html**: Self-contained web interface with vanilla JavaScript for prompt submission, status polling, and result display. Includes embedded CSS styling and requires no external dependencies.
+- **static/index.html**: Self-contained web interface with vanilla JavaScript for prompt submission, status polling, and result display. Includes embedded CSS styling and requires no external dependencies. Features navigation menu for accessing all pages.
+
+- **static/list.html**: Paginated list view showing all prompts in the queue with their status and timestamps. Auto-refreshes every 5 seconds and supports navigation between pages.
 
 ### Data
 
@@ -87,6 +89,7 @@ The worker will continuously poll for new prompts and process them using the Oll
 2. Enter your prompt in the text area
 3. Click "Queue Prompt"
 4. The interface will automatically poll for status updates and display the result when complete
+5. Navigate to `http://localhost:8000/list` to view all prompts in the queue
 
 ### API Endpoints
 
@@ -145,6 +148,30 @@ Response (when not completed):
 }
 ```
 
+#### List All Prompts
+
+```bash
+GET /api/v1/prompts?page=1&page_size=5
+```
+
+Response:
+```json
+{
+  "prompts": [
+    {
+      "id": "uuid-string",
+      "status": "completed",
+      "created_at": "2026-02-21T12:00:00+00:00",
+      "updated_at": "2026-02-21T12:01:30+00:00"
+    }
+  ],
+  "page": 1,
+  "page_size": 5,
+  "total": 10,
+  "total_pages": 2
+}
+```
+
 ### Environment Variables
 
 Configure the behavior using these optional environment variables:
@@ -182,5 +209,7 @@ curl http://localhost:8000/api/v1/prompt/{id}/result
 ```
 
 ## Update Log
+
+**2026-02-21**: Added prompt list view with pagination. New features include `/list` page showing all prompts in a table, `/api/v1/prompts` API endpoint with page and page_size query parameters (default: 5 per page, newest first), navigation menu on all pages, and auto-refresh every 5 seconds on the list page.
 
 **2026-02-16**: Initial release with proxy server, worker, and web frontend. Features include SQLite queue management, RESTful API, status tracking, and caching disabled for fresh responses.

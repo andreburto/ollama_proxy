@@ -49,3 +49,33 @@ def open_connection() -> sqlite3.Connection:
     conn = sqlite3.connect(db_path, timeout=30)
     conn.row_factory = sqlite3.Row
     return conn
+
+
+def get_prompts_paginated(page: int = 1, page_size: int = 5) -> dict:
+    """Get paginated list of prompts ordered by creation time (newest first)"""
+    offset = (page - 1) * page_size
+    with open_connection() as conn:
+        # Get total count
+        total = conn.execute("SELECT COUNT(*) as count FROM prompts").fetchone()["count"]
+        
+        # Get paginated results
+        rows = conn.execute(
+            """
+            SELECT id, status, created_at, updated_at 
+            FROM prompts 
+            ORDER BY created_at DESC 
+            LIMIT ? OFFSET ?
+            """,
+            (page_size, offset),
+        ).fetchall()
+        
+        prompts = [dict(row) for row in rows]
+        total_pages = (total + page_size - 1) // page_size if page_size > 0 else 0
+        
+        return {
+            "prompts": prompts,
+            "page": page,
+            "page_size": page_size,
+            "total": total,
+            "total_pages": total_pages
+        }

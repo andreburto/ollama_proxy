@@ -5,7 +5,7 @@ from http import HTTPStatus
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from urllib.parse import urlparse
 
-from storage import init_db, open_connection, utc_now
+from storage import init_db, open_connection, utc_now, get_prompts_paginated
 
 STATIC_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "static"))
 HOST = "0.0.0.0"
@@ -52,6 +52,12 @@ class ProxyHandler(BaseHTTPRequestHandler):
         if parsed.path == "/":
             self.serve_index()
             return
+        if parsed.path == "/list":
+            self.serve_list()
+            return
+        if parsed.path == "/api/v1/prompts":
+            self.handle_prompts_list(parsed.query)
+            return
         if parsed.path.startswith("/api/v1/prompt/"):
             self.handle_prompt_query(parsed.path)
             return
@@ -70,6 +76,38 @@ class ProxyHandler(BaseHTTPRequestHandler):
         self.send_header("Access-Control-Allow-Origin", "*")
         self.end_headers()
         self.wfile.write(data)
+
+    def serve_list(self) -> None:
+        list_path = os.path.join(STATIC_DIR, "list.html")
+        if not os.path.exists(list_path):
+            self.send_error(HTTPStatus.NOT_FOUND, "List page not found")
+            return
+        with open(list_path, "rb") as handle:
+            data = handle.read()
+        self.send_response(HTTPStatus.OK)
+        self.send_header("Content-Type", "text/html; charset=utf-8")
+        self.send_header("Content-Length", str(len(data)))
+        self.send_header("Access-Control-Allow-Origin", "*")
+        self.end_headers()
+        self.wfile.write(data)
+
+    def handle_prompts_list(self, query_string: str) -> None:
+        from urllib.parse import parse_qs
+        params = parse_qs(query_string)
+        try:
+            page = int(params.get("page", ["1"])[0])
+            page_size = int(params.get("page_size", ["5"])[0])
+        except (ValueError, IndexError):
+            page = 1
+            page_size = 5
+        
+        if page < 1:
+            page = 1
+        if page_size < 1 or page_size > 100:
+            page_size = 5
+        
+        result = get_prompts_paginated(page, page_size)
+        write_json(self, HTTPStatus.OK, result)
 
     def handle_prompt_submit(self) -> None:
         try:

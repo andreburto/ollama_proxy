@@ -1,0 +1,298 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>All Prompts - Ollama Proxy</title>
+    <style>
+      :root {
+        color-scheme: light;
+        --ink: #1c1b18;
+        --paper: #f6f2ea;
+        --accent: #b45309;
+        --accent-soft: #f4d8b5;
+        --muted: #6b655d;
+        --panel: #fffaf2;
+      }
+
+      * {
+        box-sizing: border-box;
+      }
+
+      body {
+        margin: 0;
+        font-family: "Palatino Linotype", "Book Antiqua", Palatino, serif;
+        color: var(--ink);
+        background:
+          radial-gradient(circle at top, #fff6e5 0%, #f4e8d4 40%, #efe2c9 100%),
+          repeating-linear-gradient(135deg, rgba(180, 83, 9, 0.08), rgba(180, 83, 9, 0.08) 8px, transparent 8px, transparent 16px);
+        min-height: 100vh;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        padding: 24px;
+      }
+
+      .card {
+        background: var(--panel);
+        max-width: 1000px;
+        width: 100%;
+        padding: 32px;
+        border-radius: 24px;
+        box-shadow: 0 20px 60px rgba(33, 22, 11, 0.2);
+        border: 1px solid rgba(180, 83, 9, 0.2);
+        animation: rise 600ms ease-out;
+      }
+
+      h1 {
+        margin: 0 0 8px;
+        font-size: 2.4rem;
+        letter-spacing: 0.02em;
+      }
+
+      p {
+        margin: 0 0 20px;
+        color: var(--muted);
+        line-height: 1.5;
+      }
+
+      table {
+        width: 100%;
+        border-collapse: collapse;
+        margin: 20px 0;
+      }
+
+      th, td {
+        text-align: left;
+        padding: 12px;
+        border-bottom: 1px solid rgba(28, 27, 24, 0.1);
+      }
+
+      th {
+        background: var(--accent-soft);
+        font-weight: 600;
+      }
+
+      tr:hover {
+        background: rgba(244, 216, 181, 0.3);
+      }
+
+      .status-badge {
+        padding: 4px 12px;
+        border-radius: 999px;
+        font-size: 0.85rem;
+        font-weight: 600;
+        display: inline-block;
+      }
+
+      .status-queued {
+        background: #fef3c7;
+        color: #92400e;
+      }
+
+      .status-processing {
+        background: #dbeafe;
+        color: #1e40af;
+      }
+
+      .status-completed {
+        background: #d1fae5;
+        color: #065f46;
+      }
+
+      .pagination {
+        display: flex;
+        gap: 12px;
+        align-items: center;
+        justify-content: center;
+        margin-top: 24px;
+      }
+
+      button {
+        padding: 10px 18px;
+        border: none;
+        border-radius: 999px;
+        background: var(--accent);
+        color: #fff;
+        font-weight: 600;
+        cursor: pointer;
+        transition: transform 150ms ease, box-shadow 150ms ease;
+      }
+
+      button:hover:not(:disabled) {
+        transform: translateY(-1px);
+        box-shadow: 0 8px 16px rgba(180, 83, 9, 0.25);
+      }
+
+      button:disabled {
+        opacity: 0.4;
+        cursor: not-allowed;
+      }
+
+      .page-info {
+        color: var(--muted);
+        font-weight: 600;
+      }
+
+      .id-cell {
+        font-family: monospace;
+        font-size: 0.85rem;
+        color: var(--muted);
+      }
+
+      nav {
+        position: fixed;
+        top: 16px;
+        left: 16px;
+        background: var(--panel);
+        padding: 12px 16px;
+        border-radius: 12px;
+        box-shadow: 0 4px 12px rgba(33, 22, 11, 0.15);
+        border: 1px solid rgba(180, 83, 9, 0.2);
+        z-index: 100;
+      }
+
+      nav a {
+        color: var(--accent);
+        text-decoration: none;
+        margin: 0 8px;
+        font-weight: 600;
+      }
+
+      nav a:hover {
+        text-decoration: underline;
+      }
+
+      @keyframes rise {
+        from {
+          opacity: 0;
+          transform: translateY(12px);
+        }
+        to {
+          opacity: 1;
+          transform: translateY(0);
+        }
+      }
+
+      @media (max-width: 640px) {
+        .card {
+          padding: 24px;
+        }
+        h1 {
+          font-size: 2rem;
+        }
+        table {
+          font-size: 0.9rem;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <nav>
+      <a href="/">Home</a>
+      <a href="/list">All Prompts</a>
+    </nav>
+    <div class="card">
+      <h1>All Prompts</h1>
+      <p>Track the status of all prompts in the queue.</p>
+      <table id="prompts-table">
+        <thead>
+          <tr>
+            <th>ID</th>
+            <th>Status</th>
+            <th>Created</th>
+            <th>Updated</th>
+          </tr>
+        </thead>
+        <tbody id="prompts-body">
+          <tr>
+            <td colspan="4" style="text-align: center; padding: 40px;">Loading...</td>
+          </tr>
+        </tbody>
+      </table>
+      <div class="pagination">
+        <button id="prev-btn" onclick="previousPage()">Previous</button>
+        <span class="page-info" id="page-info">Page 1</span>
+        <button id="next-btn" onclick="nextPage()">Next</button>
+      </div>
+    </div>
+
+    <script>
+      let currentPage = 1;
+      let totalPages = 1;
+      const pageSize = 5;
+
+      async function fetchPrompts(page) {
+        const response = await fetch(`/api/v1/prompts?page=${page}&page_size=${pageSize}`);
+        if (!response.ok) {
+          throw new Error("Unable to fetch prompts");
+        }
+        return response.json();
+      }
+
+      function formatDate(isoString) {
+        const date = new Date(isoString);
+        return date.toLocaleString();
+      }
+
+      function getStatusClass(status) {
+        return `status-${status}`;
+      }
+
+      function renderPrompts(data) {
+        const tbody = document.getElementById("prompts-body");
+        const pageInfo = document.getElementById("page-info");
+        const prevBtn = document.getElementById("prev-btn");
+        const nextBtn = document.getElementById("next-btn");
+
+        if (data.prompts.length === 0) {
+          tbody.innerHTML = '<tr><td colspan="4" style="text-align: center; padding: 40px;">No prompts found.</td></tr>';
+        } else {
+          tbody.innerHTML = data.prompts.map(prompt => `
+            <tr>
+              <td class="id-cell">${prompt.id}</td>
+              <td><span class="status-badge ${getStatusClass(prompt.status)}">${prompt.status}</span></td>
+              <td>${formatDate(prompt.created_at)}</td>
+              <td>${formatDate(prompt.updated_at)}</td>
+            </tr>
+          `).join("");
+        }
+
+        currentPage = data.page;
+        totalPages = data.total_pages;
+        pageInfo.textContent = `Page ${currentPage} of ${totalPages} (${data.total} total)`;
+        
+        prevBtn.disabled = currentPage <= 1;
+        nextBtn.disabled = currentPage >= totalPages;
+      }
+
+      async function loadPage(page) {
+        try {
+          const data = await fetchPrompts(page);
+          renderPrompts(data);
+        } catch (error) {
+          const tbody = document.getElementById("prompts-body");
+          tbody.innerHTML = `<tr><td colspan="4" style="text-align: center; padding: 40px; color: #dc2626;">Error: ${error.message}</td></tr>`;
+        }
+      }
+
+      function previousPage() {
+        if (currentPage > 1) {
+          loadPage(currentPage - 1);
+        }
+      }
+
+      function nextPage() {
+        if (currentPage < totalPages) {
+          loadPage(currentPage + 1);
+        }
+      }
+
+      // Load initial page
+      loadPage(1);
+
+      // Auto-refresh every 5 seconds
+      setInterval(() => loadPage(currentPage), 5000);
+    </script>
+  </body>
+</html>
